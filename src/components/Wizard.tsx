@@ -1,15 +1,22 @@
 import { useState } from 'react';
+import { initialAppData, AppData } from '../types';
+import { SetupStep } from './steps/SetupStep';
+import { InputDataStep } from './steps/InputDataStep';
+import { GenerationStep } from './steps/GenerationStep';
+import { ValidationStep } from './steps/ValidationStep';
+import { ExportStep } from './steps/ExportStep';
 
 const steps = [
   "Setup: Dati e Contesto",
   "Input Dati: PTOF, RAV, Contesto",
   "Generazione Iterativa",
   "Validazione (Conteggio Caratteri)",
-  "Export PDF"
+  "Export Documento"
 ];
 
 export function Wizard() {
   const [currentStep, setCurrentStep] = useState(0);
+  const [appData, setAppData] = useState<AppData>(initialAppData);
 
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
@@ -20,6 +27,35 @@ export function Wizard() {
   const prevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
+    }
+  };
+
+  const updateSetupData = (data: Partial<AppData['setup']>) => {
+    setAppData(prev => ({ ...prev, setup: { ...prev.setup, ...data } }));
+  };
+
+  const updateContextData = (data: Partial<AppData['context']>) => {
+    setAppData(prev => ({ ...prev, context: { ...prev.context, ...data } }));
+  };
+
+  const updateGeneratedText = (data: Partial<AppData['generatedText']>) => {
+    setAppData(prev => ({ ...prev, generatedText: { ...prev.generatedText, ...data } }));
+  };
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case 0:
+        return <SetupStep data={appData.setup} updateData={updateSetupData} />;
+      case 1:
+        return <InputDataStep data={appData.context} updateData={updateContextData} />;
+      case 2:
+        return <GenerationStep appData={appData} updateGeneratedText={updateGeneratedText} />;
+      case 3:
+        return <ValidationStep appData={appData} />;
+      case 4:
+        return <ExportStep appData={appData} />;
+      default:
+        return null;
     }
   };
 
@@ -39,13 +75,12 @@ export function Wizard() {
       <h2>Step {currentStep + 1}: {steps[currentStep]}</h2>
 
       <div style={{ margin: '2rem 0', padding: '2rem', border: '1px solid #ccc', borderRadius: '8px' }}>
-        <p>
-          Contenuto mock per lo step <strong>{steps[currentStep]}</strong>.
-          Qui andranno i form di input o la UI di generazione agentica.
-        </p>
-        <button onClick={checkSidecarHealth} style={{ marginTop: '1rem', padding: '0.5rem 1rem' }}>
-          Test Sidecar Connection
-        </button>
+        {renderStep()}
+        {currentStep === 0 && (
+          <button onClick={checkSidecarHealth} style={{ marginTop: '2rem', padding: '0.5rem 1rem' }}>
+            Test Sidecar Connection
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
