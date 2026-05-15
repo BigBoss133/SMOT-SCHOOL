@@ -1,7 +1,12 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import sys
+import os
+import json
+from agent import run_agent
+from exporter import generate_docx
 
 app = FastAPI(title="SMOT-SCHOOL AI Sidecar")
 
@@ -23,12 +28,33 @@ def health_check():
 
 @app.post("/generate")
 def generate_text(req: GenerateRequest):
-    # Dummy implementation for now
     try:
-        response_text = f"Mock generated text for prompt: '{req.prompt}'. This will be replaced by the LangGraph/Ollama logic."
-        return {"response": response_text}
+        data = json.loads(req.context)
+        # Parse chapter from prompt "Genera capitolo1"
+        chapter = req.prompt.split(" ")[1] if " " in req.prompt else "capitolo_default"
+
+        result = run_agent(data, chapter)
+
+        if not result.get("valid") and result.get("iterations") == 0:
+             return {"response": f"[Errore di Validazione]: {result.get('feedback')}"}
+
+        return {"response": result.get("generated_text", "Errore durante la generazione.")}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/export")
+async def export_document(request: Request):
+    try:
+        data = await request.json()
+        file_stream = generate_docx(data)
+
+        return StreamingResponse(
+            file_stream,
+            media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            headers={"Content-Disposition": "attachment; filename=relazione.docx"}
+        )
+    except Exception as e:
+         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn
